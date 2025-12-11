@@ -1,5 +1,10 @@
-import {CallTreeNode, Frame} from './profile'
+import {CallTreeNode, Frame, Profile} from './profile'
 import {formatPercent} from './utils'
+
+interface ProfileInfo {
+  name: string
+  profile: Profile
+}
 
 interface TreeSummaryOptions {
   node: CallTreeNode
@@ -274,6 +279,83 @@ export function generateTreeSummary(options: TreeSummaryOptions): string {
 
   output.push('-'.repeat(60))
   output.push(`Total weight of profile: ${formatValue(totalWeight)}`)
+
+  return output.join('\n')
+}
+
+/**
+ * Generates a combined summary of all profiles' left-heavy call graphs.
+ * This is useful for sending performance context to an LLM for analysis.
+ */
+export function generateAllProfilesSummary(profiles: ProfileInfo[]): string {
+  const output: string[] = []
+
+  output.push('Performance Profile Summary')
+  output.push('='.repeat(60))
+  output.push('')
+  output.push(`Total profiles: ${profiles.length}`)
+  output.push('')
+
+  for (let i = 0; i < profiles.length; i++) {
+    const {name, profile} = profiles[i]
+    const root = profile.getGroupedCalltreeRoot()
+    const totalWeight = profile.getTotalNonIdleWeight()
+    const formatValue = profile.formatValue.bind(profile)
+
+    if (profiles.length > 1) {
+      output.push('='.repeat(60))
+      output.push(`Profile ${i + 1}/${profiles.length}: ${name}`)
+      output.push(`Total: ${formatValue(totalWeight)}`)
+      output.push('='.repeat(60))
+      output.push('')
+    }
+
+    // Bottoms Up view
+    const bottomsUpMinSelfWeight = totalWeight * MIN_WEIGHT_THRESHOLD
+    const bottomsUpEntries = buildBottomsUpEntries(root, totalWeight, bottomsUpMinSelfWeight)
+
+    if (bottomsUpEntries.length > 0) {
+      output.push('Bottoms Up (by self time, >=1% of total):')
+      output.push('-'.repeat(60))
+      output.push('')
+
+      for (const entry of bottomsUpEntries) {
+        let entryName = entry.frame.name
+        if (entry.frame.file) {
+          let location = entry.frame.file
+          if (entry.frame.line != null) {
+            location += `:${entry.frame.line}`
+            if (entry.frame.col != null) {
+              location += `:${entry.frame.col}`
+            }
+          }
+          entryName += ` (${location})`
+        }
+        const stats = `[self: ${formatValue(entry.selfWeight)} (${formatPercent(
+          entry.selfPercent,
+        )}), total: ${formatValue(entry.totalWeight)} (${formatPercent(entry.totalPercent)})]`
+        output.push(`${entryName}`)
+        output.push(`${stats}`)
+        output.push('')
+      }
+    }
+
+    // Call Tree view
+    const callTreeMinWeight = totalWeight * MIN_WEIGHT_THRESHOLD
+    const callTreeLines: TreeLine[] = []
+    buildTreeLines(root, totalWeight, callTreeMinWeight, callTreeLines, '', true, true)
+
+    if (callTreeLines.length > 0) {
+      output.push('Call Tree (>=1% of total):')
+      output.push('-'.repeat(60))
+      output.push('')
+
+      for (const line of callTreeLines) {
+        output.push(...formatTreeLine(line, formatValue))
+      }
+      output.push('')
+    }
+  }
 
   return output.join('\n')
 }
