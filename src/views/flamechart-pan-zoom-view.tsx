@@ -73,7 +73,10 @@ interface FlamechartPanZoomViewState {
   } | null
 }
 
-export class FlamechartPanZoomView extends Component<FlamechartPanZoomViewProps, FlamechartPanZoomViewState> {
+export class FlamechartPanZoomView extends Component<
+  FlamechartPanZoomViewProps,
+  FlamechartPanZoomViewState
+> {
   state: FlamechartPanZoomViewState = {
     contextMenu: null,
   }
