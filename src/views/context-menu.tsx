@@ -1,4 +1,4 @@
-import {h, Component, JSX} from 'preact'
+import {h, Component} from 'preact'
 import {css, StyleSheet} from 'aphrodite'
 import {FontSize, FontFamily} from './style'
 import {Theme} from './themes/theme'
@@ -111,4 +111,3 @@ export class ContextMenu extends Component<ContextMenuProps, ContextMenuState> {
     )
   }
 }
-
